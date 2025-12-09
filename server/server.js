@@ -8,6 +8,9 @@ import session from "express-session";
 import QRCode from "qrcode";
 import crypto from "crypto";
 import os from "os";
+import https from "https";
+import http from "http";
+import fs from "fs";
 
 // ---------------------- NETWORK UTILITIES ----------------------
 function getLocalIpAddress() {
@@ -192,11 +195,53 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, '../website/login.html'));
 });
 
-const server = app.listen(PORT, '0.0.0.0', () => {
+// ---------------------- SSL/HTTPS SETUP ----------------------
+let server;
+const certPath = path.join(__dirname, '../server-cert.pem');
+const keyPath = path.join(__dirname, '../server-key.pem');
+const pfxPath = path.join(__dirname, '../server.pfx');
+
+let useHttps = false;
+
+// Check if SSL certificates exist
+if (fs.existsSync(certPath) && fs.existsSync(keyPath)) {
+    try {
+        const httpsOptions = {
+            cert: fs.readFileSync(certPath),
+            key: fs.readFileSync(keyPath)
+        };
+        server = https.createServer(httpsOptions, app);
+        useHttps = true;
+        console.log('🔒 HTTPS enabled (using PEM certificates)');
+    } catch (error) {
+        console.log('⚠️  SSL certificate error, falling back to HTTP:', error.message);
+        server = http.createServer(app);
+    }
+} else if (fs.existsSync(pfxPath)) {
+    try {
+        const httpsOptions = {
+            pfx: fs.readFileSync(pfxPath),
+            passphrase: ''
+        };
+        server = https.createServer(httpsOptions, app);
+        useHttps = true;
+        console.log('🔒 HTTPS enabled (using PFX certificate)');
+    } catch (error) {
+        console.log('⚠️  SSL certificate error, falling back to HTTP:', error.message);
+        server = http.createServer(app);
+    }
+} else {
+    server = http.createServer(app);
+    console.log('⚠️  No SSL certificates found. Running on HTTP.');
+    console.log('   To enable HTTPS, run: npm run generate-ssl');
+}
+
+server.listen(PORT, '0.0.0.0', () => {
     // Detect if running on Railway or locally
     const isRailway = process.env.RAILWAY_ENVIRONMENT !== undefined;
     const railwayUrl = process.env.RAILWAY_PUBLIC_DOMAIN;
     const localIp = getLocalIpAddress();
+    const protocol = useHttps ? 'https' : 'http';
     
     let baseUrl;
     let networkUrl;
@@ -208,12 +253,12 @@ const server = app.listen(PORT, '0.0.0.0', () => {
         baseUrl = `https://your-app.railway.app`;
         networkUrl = baseUrl;
     } else {
-        baseUrl = `http://localhost:${PORT}`;
-        networkUrl = `http://${localIp}:${PORT}`;
+        baseUrl = `${protocol}://localhost:${PORT}`;
+        networkUrl = `${protocol}://${localIp}:${PORT}`;
     }
     
     console.log(`\n${'='.repeat(60)}`);
-    console.log(`🚀 HTTP + WebSocket Server Running on Port ${PORT}`);
+    console.log(`🚀 ${useHttps ? 'HTTPS' : 'HTTP'} + WebSocket Server Running on Port ${PORT}`);
     console.log(`${'='.repeat(60)}`);
     console.log(`\n🌍 Environment: ${isRailway ? 'Railway (Production)' : 'Local Development'}`);
     

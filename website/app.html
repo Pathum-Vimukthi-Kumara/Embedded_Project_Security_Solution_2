@@ -104,24 +104,33 @@
     <div id="status" class="status-info">Awaiting user input...</div>
   </div>
 
+  <!-- Load main.js first -->
+  <script src="main.js"></script>
+  
   <script>
-    // Check authentication before loading the app
+    // Check authentication before allowing the app to work
     async function checkAuth() {
       try {
         const response = await fetch('/api/auth-status');
         const data = await response.json();
         
         if (!data.authenticated) {
+          console.log('Not authenticated, redirecting to login...');
           window.location.href = '/login.html';
+          return false;
         }
+        console.log('Authentication verified');
+        return true;
       } catch (error) {
         console.error('Auth check failed:', error);
         window.location.href = '/login.html';
+        return false;
       }
     }
 
     // Logout functionality
     document.getElementById('logoutBtn').onclick = async () => {
+      console.log('Logout clicked');
       try {
         await fetch('/api/logout', { method: 'POST' });
         window.location.href = '/login.html';
@@ -132,8 +141,10 @@
     };
 
     // Run auth check on load
-    checkAuth();
+    window.addEventListener('DOMContentLoaded', () => {
+      console.log('Page loaded, checking authentication...');
+      checkAuth();
+    });
   </script>
-  <script src="main.js"></script>
 </body>
 </html>
