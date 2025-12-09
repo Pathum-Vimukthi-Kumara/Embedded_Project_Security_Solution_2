@@ -28,6 +28,9 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // ---------------------- AUTHENTICATION SYSTEM ----------------------
+// Admin password (hardcoded)
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "admin123";
+
 let currentPassword = generatePassword();
 let passwordCreatedAt = Date.now();
 const PASSWORD_EXPIRY = 5 * 60 * 1000; // 5 minutes
@@ -99,8 +102,40 @@ app.post('/api/logout', (req, res) => {
     res.json({ success: true });
 });
 
+// Admin login endpoint
+app.post('/api/admin/login', (req, res) => {
+    const { password } = req.body;
+    
+    if (password === ADMIN_PASSWORD) {
+        req.session.adminAuthenticated = true;
+        res.json({ success: true, message: 'Admin authentication successful' });
+    } else {
+        res.status(401).json({ success: false, message: 'Invalid admin password' });
+    }
+});
+
+// Check admin authentication status
+app.get('/api/admin/auth-status', (req, res) => {
+    res.json({ authenticated: req.session.adminAuthenticated || false });
+});
+
+// Admin logout endpoint
+app.post('/api/admin/logout', (req, res) => {
+    req.session.adminAuthenticated = false;
+    res.json({ success: true });
+});
+
+// Middleware to protect admin routes
+function requireAdminAuth(req, res, next) {
+    if (req.session.adminAuthenticated) {
+        next();
+    } else {
+        res.status(401).json({ error: 'Admin authentication required' });
+    }
+}
+
 // Admin endpoint to get current password and QR code
-app.get('/api/admin/password', async (req, res) => {
+app.get('/api/admin/password', requireAdminAuth, async (req, res) => {
     refreshPasswordIfNeeded();
     
     const loginUrl = `${req.protocol}://${req.get('host')}/login.html?pwd=${currentPassword}`;
@@ -129,7 +164,7 @@ app.get('/api/admin/password', async (req, res) => {
 });
 
 // Regenerate password manually
-app.post('/api/admin/regenerate', (req, res) => {
+app.post('/api/admin/regenerate', requireAdminAuth, (req, res) => {
     currentPassword = generatePassword();
     passwordCreatedAt = Date.now();
     console.log(`🔑 Password manually regenerated: ${currentPassword}`);
@@ -196,8 +231,9 @@ const server = app.listen(PORT, '0.0.0.0', () => {
         console.log(`   🔐 Admin Panel: ${baseUrl}/admin.html`);
     }
     
-    console.log(`\n🔑 Current Password: ${currentPassword}`);
-    console.log(`⏰ Password Expires: ${new Date(passwordCreatedAt + PASSWORD_EXPIRY).toLocaleTimeString()}`);
+    console.log(`\n🔐 Admin Password: ${ADMIN_PASSWORD}`);
+    console.log(`🔑 Current User Password: ${currentPassword}`);
+    console.log(`⏰ User Password Expires: ${new Date(passwordCreatedAt + PASSWORD_EXPIRY).toLocaleTimeString()}`);
     console.log(`${'='.repeat(60)}\n`);
 });
 
