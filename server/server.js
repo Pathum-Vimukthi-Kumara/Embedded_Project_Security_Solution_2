@@ -7,6 +7,21 @@ import { fileURLToPath } from "url";
 import session from "express-session";
 import QRCode from "qrcode";
 import crypto from "crypto";
+import os from "os";
+
+// ---------------------- NETWORK UTILITIES ----------------------
+function getLocalIpAddress() {
+    const interfaces = os.networkInterfaces();
+    for (const name of Object.keys(interfaces)) {
+        for (const iface of interfaces[name]) {
+            // Skip internal (loopback) and non-IPv4 addresses
+            if (iface.family === 'IPv4' && !iface.internal) {
+                return iface.address;
+            }
+        }
+    }
+    return 'localhost';
+}
 
 // ---------------------- PATH HELPERS ----------------------
 const __filename = fileURLToPath(import.meta.url);
@@ -37,14 +52,18 @@ function refreshPasswordIfNeeded() {
 const app = express();
 const PORT = process.env.PORT || 10000;
 
+// Detect production environment
+const isProduction = process.env.RAILWAY_ENVIRONMENT !== undefined || process.env.NODE_ENV === 'production';
+
 // Session middleware
 app.use(session({
-    secret: crypto.randomBytes(32).toString('hex'),
+    secret: process.env.SESSION_SECRET || crypto.randomBytes(32).toString('hex'),
     resave: false,
     saveUninitialized: false,
     cookie: { 
-        secure: false, // Set to true if using HTTPS
-        maxAge: 30 * 60 * 1000 // 30 minutes
+        secure: isProduction, // Use secure cookies in production (HTTPS)
+        maxAge: 30 * 60 * 1000, // 30 minutes
+        sameSite: 'lax'
     }
 }));
 
@@ -138,13 +157,45 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, '../website/login.html'));
 });
 
-const server = app.listen(PORT, () => {
+const server = app.listen(PORT, '0.0.0.0', () => {
+    // Detect if running on Railway or locally
+    const isRailway = process.env.RAILWAY_ENVIRONMENT !== undefined;
+    const railwayUrl = process.env.RAILWAY_PUBLIC_DOMAIN;
+    const localIp = getLocalIpAddress();
+    
+    let baseUrl;
+    let networkUrl;
+    
+    if (isRailway && railwayUrl) {
+        baseUrl = `https://${railwayUrl}`;
+        networkUrl = baseUrl;
+    } else if (isRailway) {
+        baseUrl = `https://your-app.railway.app`;
+        networkUrl = baseUrl;
+    } else {
+        baseUrl = `http://localhost:${PORT}`;
+        networkUrl = `http://${localIp}:${PORT}`;
+    }
+    
     console.log(`\n${'='.repeat(60)}`);
     console.log(`🚀 HTTP + WebSocket Server Running on Port ${PORT}`);
     console.log(`${'='.repeat(60)}`);
-    console.log(`\n📱 Access URLs:`);
-    console.log(`   👤 User Login:  http://localhost:${PORT}/login.html`);
-    console.log(`   🔐 Admin Panel: http://localhost:${PORT}/admin.html`);
+    console.log(`\n🌍 Environment: ${isRailway ? 'Railway (Production)' : 'Local Development'}`);
+    
+    if (!isRailway) {
+        console.log(`\n📱 Local Access URLs:`);
+        console.log(`   👤 User Login:  ${baseUrl}/login.html`);
+        console.log(`   🔐 Admin Panel: ${baseUrl}/admin.html`);
+        console.log(`\n🌐 Network Access URLs (for VM/other devices):`);
+        console.log(`   👤 User Login:  ${networkUrl}/login.html`);
+        console.log(`   🔐 Admin Panel: ${networkUrl}/admin.html`);
+        console.log(`   📡 Local IP:    ${localIp}`);
+    } else {
+        console.log(`\n📱 Access URLs:`);
+        console.log(`   👤 User Login:  ${baseUrl}/login.html`);
+        console.log(`   🔐 Admin Panel: ${baseUrl}/admin.html`);
+    }
+    
     console.log(`\n🔑 Current Password: ${currentPassword}`);
     console.log(`⏰ Password Expires: ${new Date(passwordCreatedAt + PASSWORD_EXPIRY).toLocaleTimeString()}`);
     console.log(`${'='.repeat(60)}\n`);
