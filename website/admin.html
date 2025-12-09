@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Dashboard - Voice Control</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      margin: 0;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      padding: 20px;
+      box-sizing: border-box;
+    }
+    .container {
+      background: white;
+      padding: 40px;
+      border-radius: 10px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+      text-align: center;
+      max-width: 600px;
+      width: 100%;
+    }
+    h1 {
+      margin: 0 0 10px 0;
+      color: #333;
+      font-size: 28px;
+    }
+    .subtitle {
+      color: #666;
+      margin-bottom: 30px;
+      font-size: 14px;
+    }
+    .qr-section {
+      background: #f8f9fa;
+      padding: 20px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+    }
+    #qrCode {
+      margin: 20px auto;
+      max-width: 300px;
+    }
+    #qrCode img {
+      width: 100%;
+      height: auto;
+      border: 3px solid #333;
+      border-radius: 8px;
+    }
+    .password-display {
+      background: #fff;
+      border: 3px solid #667eea;
+      border-radius: 8px;
+      padding: 20px;
+      margin: 20px 0;
+    }
+    .password-label {
+      font-size: 14px;
+      color: #666;
+      margin-bottom: 10px;
+      text-transform: uppercase;
+      font-weight: bold;
+    }
+    .password-value {
+      font-size: 36px;
+      font-weight: bold;
+      color: #667eea;
+      letter-spacing: 4px;
+      font-family: 'Courier New', monospace;
+      word-break: break-all;
+    }
+    .info-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 15px;
+      margin: 20px 0;
+      text-align: left;
+    }
+    .info-item {
+      background: #f8f9fa;
+      padding: 15px;
+      border-radius: 8px;
+    }
+    .info-label {
+      font-size: 12px;
+      color: #666;
+      margin-bottom: 5px;
+      text-transform: uppercase;
+    }
+    .info-value {
+      font-size: 18px;
+      font-weight: bold;
+      color: #333;
+    }
+    .timer {
+      color: #f44336;
+    }
+    .timer.warning {
+      animation: pulse 1s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.6; }
+    }
+    button {
+      padding: 15px 30px;
+      font-size: 16px;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: all 0.3s;
+      margin: 10px;
+      font-weight: bold;
+    }
+    #regenerateBtn {
+      background-color: #f44336;
+      color: white;
+    }
+    #regenerateBtn:hover:not(:disabled) {
+      background-color: #da190b;
+    }
+    #refreshBtn {
+      background-color: #4CAF50;
+      color: white;
+    }
+    #refreshBtn:hover:not(:disabled) {
+      background-color: #45a049;
+    }
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+    .instructions {
+      background: #e3f2fd;
+      border-left: 4px solid #2196F3;
+      padding: 15px;
+      margin: 20px 0;
+      text-align: left;
+      border-radius: 4px;
+    }
+    .instructions h3 {
+      margin: 0 0 10px 0;
+      color: #1976D2;
+      font-size: 16px;
+    }
+    .instructions ol {
+      margin: 0;
+      padding-left: 20px;
+    }
+    .instructions li {
+      margin: 5px 0;
+      color: #555;
+      font-size: 14px;
+    }
+    .status {
+      margin-top: 10px;
+      padding: 10px;
+      border-radius: 5px;
+      font-size: 14px;
+      display: none;
+    }
+    .status.show {
+      display: block;
+    }
+    .status.success {
+      background-color: #d4edda;
+      color: #155724;
+    }
+    .status.error {
+      background-color: #f8d7da;
+      color: #721c24;
+    }
+    .back-link {
+      margin-top: 20px;
+      padding-top: 20px;
+      border-top: 1px solid #eee;
+    }
+    .back-link a {
+      color: #667eea;
+      text-decoration: none;
+      font-size: 14px;
+    }
+    .back-link a:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🔐 Admin Dashboard</h1>
+    <p class="subtitle">Manage user access with dynamic passwords</p>
+    
+    <div class="qr-section">
+      <h2 style="margin-top: 0; color: #333; font-size: 20px;">Login QR Code</h2>
+      <div id="qrCode">
+        <p>Loading...</p>
+      </div>
+      <p style="font-size: 12px; color: #666; margin: 10px 0 0 0;">Users can scan this code to auto-login</p>
+    </div>
+    
+    <div class="password-display">
+      <div class="password-label">Current Password</div>
+      <div class="password-value" id="currentPassword">Loading...</div>
+    </div>
+    
+    <div class="info-grid">
+      <div class="info-item">
+        <div class="info-label">Created At</div>
+        <div class="info-value" id="createdAt">-</div>
+      </div>
+      <div class="info-item">
+        <div class="info-label">Expires In</div>
+        <div class="info-value timer" id="expiresIn">-</div>
+      </div>
+    </div>
+    
+    <div>
+      <button id="refreshBtn">🔄 Refresh</button>
+      <button id="regenerateBtn">🔑 Generate New Password</button>
+    </div>
+    
+    <div id="status" class="status"></div>
+    
+    <div class="instructions">
+      <h3>📱 How to share access:</h3>
+      <ol>
+        <li>User scans the QR code with their phone camera</li>
+        <li>They'll be directed to the login page with password pre-filled</li>
+        <li>User clicks "Login" to access the voice control app</li>
+        <li>Password expires after 5 minutes for security</li>
+      </ol>
+    </div>
+    
+    <div class="back-link">
+      <a href="/login.html">← Back to Login</a>
+    </div>
+  </div>
+
+  <script>
+    let refreshInterval;
+    let countdownInterval;
+
+    async function loadPasswordData() {
+      try {
+        const response = await fetch('/api/admin/password');
+        const data = await response.json();
+        
+        document.getElementById('currentPassword').textContent = data.password;
+        document.getElementById('createdAt').textContent = data.createdAt;
+        
+        // Display QR code
+        const qrCodeDiv = document.getElementById('qrCode');
+        qrCodeDiv.innerHTML = `<img src="${data.qrCode}" alt="Login QR Code">`;
+        
+        // Start countdown
+        startCountdown(data.expiresIn);
+        
+        hideStatus();
+      } catch (error) {
+        console.error('Error loading password data:', error);
+        showStatus('Failed to load password data', 'error');
+      }
+    }
+
+    function startCountdown(seconds) {
+      clearInterval(countdownInterval);
+      let remaining = seconds;
+      
+      updateCountdownDisplay(remaining);
+      
+      countdownInterval = setInterval(() => {
+        remaining--;
+        updateCountdownDisplay(remaining);
+        
+        if (remaining <= 0) {
+          clearInterval(countdownInterval);
+          loadPasswordData(); // Auto-refresh when expired
+        }
+      }, 1000);
+    }
+
+    function updateCountdownDisplay(seconds) {
+      const minutes = Math.floor(seconds / 60);
+      const secs = seconds % 60;
+      const display = `${minutes}:${secs.toString().padStart(2, '0')}`;
+      
+      const expiresInEl = document.getElementById('expiresIn');
+      expiresInEl.textContent = display;
+      
+      if (seconds <= 60) {
+        expiresInEl.classList.add('warning');
+      } else {
+        expiresInEl.classList.remove('warning');
+      }
+    }
+
+    function showStatus(message, type) {
+      const statusDiv = document.getElementById('status');
+      statusDiv.textContent = message;
+      statusDiv.className = `status show ${type}`;
+    }
+
+    function hideStatus() {
+      const statusDiv = document.getElementById('status');
+      statusDiv.className = 'status';
+    }
+
+    document.getElementById('refreshBtn').onclick = async () => {
+      document.getElementById('refreshBtn').disabled = true;
+      await loadPasswordData();
+      showStatus('Password data refreshed', 'success');
+      setTimeout(() => {
+        document.getElementById('refreshBtn').disabled = false;
+        hideStatus();
+      }, 2000);
+    };
+
+    document.getElementById('regenerateBtn').onclick = async () => {
+      if (!confirm('Are you sure you want to generate a new password? This will invalidate the current one.')) {
+        return;
+      }
+      
+      document.getElementById('regenerateBtn').disabled = true;
+      
+      try {
+        const response = await fetch('/api/admin/regenerate', {
+          method: 'POST'
+        });
+        const data = await response.json();
+        
+        if (data.success) {
+          showStatus('New password generated successfully', 'success');
+          await loadPasswordData();
+        } else {
+          showStatus('Failed to generate new password', 'error');
+        }
+      } catch (error) {
+        showStatus('Connection error', 'error');
+      }
+      
+      setTimeout(() => {
+        document.getElementById('regenerateBtn').disabled = false;
+        hideStatus();
+      }, 2000);
+    };
+
+    // Initial load
+    loadPasswordData();
+
+    // Auto-refresh every 30 seconds
+    refreshInterval = setInterval(loadPasswordData, 30000);
+
+    // Cleanup on page unload
+    window.addEventListener('beforeunload', () => {
+      clearInterval(refreshInterval);
+      clearInterval(countdownInterval);
+    });
+  </script>
+</body>
+</html>

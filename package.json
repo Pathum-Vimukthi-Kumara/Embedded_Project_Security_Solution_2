@@ -1,0 +1,12 @@
+{
+  "name": "voice_05_12",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "start": "node server/server.js",
+    "postinstall": "cd server && npm install"
+  },
+  "engines": {
+    "node": "18.x"
+  }
+}

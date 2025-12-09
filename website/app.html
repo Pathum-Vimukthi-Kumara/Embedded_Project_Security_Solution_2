@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Voice Control - Rextro-2025</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      margin: 0;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+    .container {
+      background: white;
+      padding: 40px;
+      border-radius: 10px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+      text-align: center;
+    }
+    h1 {
+      margin: 0 0 20px 0;
+      color: #333;
+    }
+    button {
+      padding: 15px 30px;
+      font-size: 16px;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: all 0.3s;
+      margin: 10px;
+    }
+    #startBtn {
+      background-color: #4CAF50;
+      color: white;
+    }
+    #startBtn:hover:not(:disabled) {
+      background-color: #45a049;
+    }
+    #stopBtn {
+      background-color: #f44336;
+      color: white;
+      display: none;
+    }
+    #stopBtn:hover:not(:disabled) {
+      background-color: #da190b;
+    }
+    #logoutBtn {
+      background-color: #666;
+      color: white;
+      font-size: 14px;
+      padding: 10px 20px;
+    }
+    #logoutBtn:hover:not(:disabled) {
+      background-color: #555;
+    }
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    #status {
+      margin-top: 20px;
+      padding: 10px;
+      border-radius: 5px;
+      font-weight: bold;
+    }
+    .status-connected {
+      background-color: #d4edda;
+      color: #155724;
+    }
+    .status-error {
+      background-color: #f8d7da;
+      color: #721c24;
+    }
+    .status-info {
+      background-color: #d1ecf1;
+      color: #0c5460;
+    }
+    .header-actions {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+    }
+  </style>
+</head>
+<body>
+  <div class="header-actions">
+    <button id="logoutBtn">Logout</button>
+  </div>
+  
+  <div class="container">
+    <h1>Voice Control Water Fountain</h1>
+    
+    <p id="instructionText">Click Start Streaming to begin voice control.</p> 
+
+    <button id="startBtn">Start Streaming</button>
+    <button id="stopBtn">Stop Streaming</button>
+    
+    <div id="status" class="status-info">Awaiting user input...</div>
+  </div>
+
+  <script>
+    // Check authentication before loading the app
+    async function checkAuth() {
+      try {
+        const response = await fetch('/api/auth-status');
+        const data = await response.json();
+        
+        if (!data.authenticated) {
+          window.location.href = '/login.html';
+        }
+      } catch (error) {
+        console.error('Auth check failed:', error);
+        window.location.href = '/login.html';
+      }
+    }
+
+    // Logout functionality
+    document.getElementById('logoutBtn').onclick = async () => {
+      try {
+        await fetch('/api/logout', { method: 'POST' });
+        window.location.href = '/login.html';
+      } catch (error) {
+        console.error('Logout failed:', error);
+        window.location.href = '/login.html';
+      }
+    };
+
+    // Run auth check on load
+    checkAuth();
+  </script>
+  <script src="main.js"></script>
+</body>
+</html>
