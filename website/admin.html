@@ -26,6 +26,32 @@
       max-width: 600px;
       width: 100%;
     }
+    .login-container {
+      max-width: 400px;
+    }
+    .input-group {
+      margin-bottom: 20px;
+      text-align: left;
+    }
+    label {
+      display: block;
+      margin-bottom: 8px;
+      color: #333;
+      font-weight: bold;
+      font-size: 14px;
+    }
+    input[type="password"] {
+      width: 100%;
+      padding: 12px;
+      border: 2px solid #ddd;
+      border-radius: 5px;
+      font-size: 16px;
+      box-sizing: border-box;
+    }
+    input[type="password"]:focus {
+      outline: none;
+      border-color: #667eea;
+    }
     h1 {
       margin: 0 0 10px 0;
       color: #333;
@@ -188,11 +214,55 @@
     .back-link a:hover {
       text-decoration: underline;
     }
+    .hidden {
+      display: none;
+    }
+    .admin-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+    .admin-header h1 {
+      margin: 0;
+    }
+    .logout-btn {
+      background-color: #666;
+      color: white;
+      padding: 10px 20px;
+      font-size: 14px;
+    }
+    .logout-btn:hover:not(:disabled) {
+      background-color: #555;
+    }
   </style>
 </head>
 <body>
-  <div class="container">
-    <h1>🔐 Admin Dashboard</h1>
+  <!-- Admin Login Form -->
+  <div id="loginForm" class="container login-container">
+    <h1>🔐 Admin Login</h1>
+    <p class="subtitle">Enter admin password to access dashboard</p>
+    
+    <div class="input-group">
+      <label for="adminPassword">Admin Password</label>
+      <input type="password" id="adminPassword" placeholder="Enter admin password" autocomplete="off">
+    </div>
+    
+    <button id="adminLoginBtn">Login</button>
+    
+    <div id="loginMessage" class="status"></div>
+    
+    <div class="back-link">
+      <a href="/login.html">← Back to User Login</a>
+    </div>
+  </div>
+
+  <!-- Admin Dashboard (hidden until authenticated) -->
+  <div id="adminDashboard" class="container hidden">
+    <div class="admin-header">
+      <h1>🔐 Admin Dashboard</h1>
+      <button id="adminLogoutBtn" class="logout-btn">Logout</button>
+    </div>
     <p class="subtitle">Manage user access with dynamic passwords</p>
     
     <div class="qr-section">
@@ -242,12 +312,124 @@
   </div>
 
   <script>
+    const loginForm = document.getElementById('loginForm');
+    const adminDashboard = document.getElementById('adminDashboard');
+    const adminPassword = document.getElementById('adminPassword');
+    const adminLoginBtn = document.getElementById('adminLoginBtn');
+    const loginMessage = document.getElementById('loginMessage');
+    const adminLogoutBtn = document.getElementById('adminLogoutBtn');
+    
     let refreshInterval;
     let countdownInterval;
+
+    // Check admin authentication on load
+    async function checkAdminAuth() {
+      try {
+        const response = await fetch('/api/admin/auth-status');
+        const data = await response.json();
+        
+        if (data.authenticated) {
+          showDashboard();
+        }
+      } catch (error) {
+        console.error('Auth check failed:', error);
+      }
+    }
+
+    // Admin login
+    adminLoginBtn.onclick = async () => {
+      const password = adminPassword.value.trim();
+      
+      if (!password) {
+        showLoginMessage('Please enter admin password', 'error');
+        return;
+      }
+
+      adminLoginBtn.disabled = true;
+      adminLoginBtn.textContent = 'Logging in...';
+
+      try {
+        const response = await fetch('/api/admin/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+          showLoginMessage('Login successful!', 'success');
+          setTimeout(() => {
+            showDashboard();
+          }, 500);
+        } else {
+          showLoginMessage(data.message || 'Invalid password', 'error');
+          adminLoginBtn.disabled = false;
+          adminLoginBtn.textContent = 'Login';
+          adminPassword.value = '';
+        }
+      } catch (error) {
+        showLoginMessage('Connection error', 'error');
+        adminLoginBtn.disabled = false;
+        adminLoginBtn.textContent = 'Login';
+      }
+    };
+
+    // Admin logout
+    adminLogoutBtn.onclick = async () => {
+      try {
+        await fetch('/api/admin/logout', { method: 'POST' });
+        hideDashboard();
+      } catch (error) {
+        console.error('Logout failed:', error);
+        hideDashboard();
+      }
+    };
+
+    // Enter key on password input
+    adminPassword.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        adminLoginBtn.click();
+      }
+    });
+
+    function showLoginMessage(text, type) {
+      loginMessage.textContent = text;
+      loginMessage.className = `status show ${type}`;
+    }
+
+    function showDashboard() {
+      loginForm.classList.add('hidden');
+      adminDashboard.classList.remove('hidden');
+      loadPasswordData();
+      refreshInterval = setInterval(loadPasswordData, 30000);
+    }
+
+    function hideDashboard() {
+      adminDashboard.classList.add('hidden');
+      loginForm.classList.remove('hidden');
+      adminPassword.value = '';
+      adminLoginBtn.disabled = false;
+      adminLoginBtn.textContent = 'Login';
+      loginMessage.className = 'status';
+      clearInterval(refreshInterval);
+      clearInterval(countdownInterval);
+    }
 
     async function loadPasswordData() {
       try {
         const response = await fetch('/api/admin/password');
+        
+        if (!response.ok) {
+          if (response.status === 401) {
+            // Not authenticated, redirect back to login
+            hideDashboard();
+            showLoginMessage('Session expired. Please login again.', 'error');
+            return;
+          }
+          throw new Error('Failed to load password data');
+        }
+        
         const data = await response.json();
         
         document.getElementById('currentPassword').textContent = data.password;
@@ -263,7 +445,7 @@
         hideStatus();
       } catch (error) {
         console.error('Error loading password data:', error);
-        showStatus('Failed to load password data', 'error');
+        showStatus('Failed to load password data. Please try refreshing.', 'error');
       }
     }
 
@@ -349,11 +531,8 @@
       }, 2000);
     };
 
-    // Initial load
-    loadPasswordData();
-
-    // Auto-refresh every 30 seconds
-    refreshInterval = setInterval(loadPasswordData, 30000);
+    // Initial auth check
+    checkAdminAuth();
 
     // Cleanup on page unload
     window.addEventListener('beforeunload', () => {
