@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Microphone Test</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      max-width: 800px;
+      margin: 0 auto;
+    }
+    .test-section {
+      background: #f5f5f5;
+      padding: 20px;
+      margin: 20px 0;
+      border-radius: 8px;
+    }
+    button {
+      padding: 10px 20px;
+      margin: 5px;
+      cursor: pointer;
+      background: #667eea;
+      color: white;
+      border: none;
+      border-radius: 5px;
+    }
+    button:hover {
+      background: #5568d3;
+    }
+    .log {
+      background: #000;
+      color: #0f0;
+      padding: 15px;
+      border-radius: 5px;
+      font-family: monospace;
+      font-size: 12px;
+      max-height: 400px;
+      overflow-y: auto;
+      margin: 10px 0;
+    }
+    .log div {
+      margin: 3px 0;
+    }
+    .error { color: #f00; }
+    .success { color: #0f0; }
+    .info { color: #0ff; }
+  </style>
+</head>
+<body>
+  <h1>🎤 Microphone & WebSocket Test</h1>
+  
+  <div class="test-section">
+    <h2>1. Browser Info</h2>
+    <div id="browserInfo"></div>
+  </div>
+  
+  <div class="test-section">
+    <h2>2. Microphone Test</h2>
+    <button onclick="testMicrophone()">Test Microphone</button>
+    <button onclick="stopMicrophone()">Stop Microphone</button>
+    <div id="micStatus"></div>
+  </div>
+  
+  <div class="test-section">
+    <h2>3. WebSocket Test</h2>
+    <button onclick="testWebSocket()">Test WebSocket</button>
+    <button onclick="closeWebSocket()">Close WebSocket</button>
+    <div id="wsStatus"></div>
+  </div>
+  
+  <div class="test-section">
+    <h2>4. Audio Worklet Test</h2>
+    <button onclick="testAudioWorklet()">Test Audio Worklet</button>
+    <div id="workletStatus"></div>
+  </div>
+  
+  <div class="test-section">
+    <h2>Console Log</h2>
+    <button onclick="clearLog()">Clear Log</button>
+    <div class="log" id="consoleLog"></div>
+  </div>
+
+  <script>
+    let testStream = null;
+    let testWs = null;
+    let testAudioContext = null;
+
+    function log(message, type = 'info') {
+      const logDiv = document.getElementById('consoleLog');
+      const time = new Date().toLocaleTimeString();
+      const div = document.createElement('div');
+      div.className = type;
+      div.textContent = `[${time}] ${message}`;
+      logDiv.appendChild(div);
+      logDiv.scrollTop = logDiv.scrollHeight;
+      console.log(message);
+    }
+
+    function clearLog() {
+      document.getElementById('consoleLog').innerHTML = '';
+    }
+
+    // Browser Info
+    document.getElementById('browserInfo').innerHTML = `
+      <strong>User Agent:</strong> ${navigator.userAgent}<br>
+      <strong>Platform:</strong> ${navigator.platform}<br>
+      <strong>Protocol:</strong> ${location.protocol}<br>
+      <strong>Host:</strong> ${location.host}<br>
+      <strong>HTTPS:</strong> ${location.protocol === 'https:' ? 'Yes' : 'No'}<br>
+      <strong>getUserMedia Support:</strong> ${navigator.mediaDevices && navigator.mediaDevices.getUserMedia ? 'Yes' : 'No'}<br>
+      <strong>AudioWorklet Support:</strong> ${window.AudioContext && AudioContext.prototype.audioWorklet ? 'Yes' : 'No'}
+    `;
+
+    async function testMicrophone() {
+      try {
+        log('🎤 Requesting microphone access...', 'info');
+        
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          throw new Error('getUserMedia not supported');
+        }
+
+        testStream = await navigator.mediaDevices.getUserMedia({ 
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true
+          } 
+        });
+
+        log('✅ Microphone access granted!', 'success');
+        log(`Tracks: ${testStream.getTracks().length}`, 'success');
+        testStream.getTracks().forEach((track, i) => {
+          log(`Track ${i}: ${track.kind} - ${track.label} - Enabled: ${track.enabled}`, 'info');
+        });
+
+        document.getElementById('micStatus').innerHTML = '<span style="color: green;">✅ Microphone working!</span>';
+      } catch (error) {
+        log(`❌ Microphone error: ${error.name} - ${error.message}`, 'error');
+        document.getElementById('micStatus').innerHTML = `<span style="color: red;">❌ Error: ${error.message}</span>`;
+      }
+    }
+
+    function stopMicrophone() {
+      if (testStream) {
+        testStream.getTracks().forEach(track => track.stop());
+        testStream = null;
+        log('🛑 Microphone stopped', 'info');
+        document.getElementById('micStatus').innerHTML = '<span style="color: gray;">Microphone stopped</span>';
+      }
+    }
+
+    function testWebSocket() {
+      try {
+        const protocol = location.protocol === 'https:' ? 'wss' : 'ws';
+        const wsUrl = `${protocol}://${location.host}`;
+        
+        log(`🔌 Connecting to WebSocket: ${wsUrl}`, 'info');
+        
+        testWs = new WebSocket(wsUrl);
+
+        testWs.onopen = () => {
+          log('✅ WebSocket connected!', 'success');
+          document.getElementById('wsStatus').innerHTML = '<span style="color: green;">✅ WebSocket connected!</span>';
+        };
+
+        testWs.onmessage = (event) => {
+          log(`📨 Message received: ${event.data}`, 'info');
+        };
+
+        testWs.onerror = (error) => {
+          log(`❌ WebSocket error: ${error}`, 'error');
+          document.getElementById('wsStatus').innerHTML = '<span style="color: red;">❌ WebSocket error</span>';
+        };
+
+        testWs.onclose = (event) => {
+          log(`🔌 WebSocket closed: ${event.code} - ${event.reason}`, 'info');
+          document.getElementById('wsStatus').innerHTML = '<span style="color: gray;">WebSocket closed</span>';
+        };
+      } catch (error) {
+        log(`❌ WebSocket creation error: ${error.message}`, 'error');
+      }
+    }
+
+    function closeWebSocket() {
+      if (testWs) {
+        testWs.close();
+        testWs = null;
+        log('🛑 WebSocket closed manually', 'info');
+      }
+    }
+
+    async function testAudioWorklet() {
+      try {
+        log('🔊 Creating AudioContext...', 'info');
+        testAudioContext = new AudioContext();
+        log(`✅ AudioContext created. State: ${testAudioContext.state}`, 'success');
+
+        log('📦 Loading PCMProcessor.js...', 'info');
+        await testAudioContext.audioWorklet.addModule('PCMProcessor.js');
+        log('✅ PCMProcessor loaded successfully!', 'success');
+
+        const processor = new AudioWorkletNode(testAudioContext, 'pcm-processor');
+        log('✅ AudioWorkletNode created!', 'success');
+
+        document.getElementById('workletStatus').innerHTML = '<span style="color: green;">✅ Audio Worklet working!</span>';
+      } catch (error) {
+        log(`❌ Audio Worklet error: ${error.message}`, 'error');
+        document.getElementById('workletStatus').innerHTML = `<span style="color: red;">❌ Error: ${error.message}</span>`;
+      }
+    }
+
+    // Initial log
+    log('🚀 Test page loaded', 'success');
+  </script>
+</body>
+</html>
