@@ -139,8 +139,15 @@ app.get('/', (req, res) => {
 });
 
 const server = app.listen(PORT, () => {
-    console.log(`HTTP + WebSocket running on port ${PORT}`);
-    console.log('PORT env:', process.env.PORT);
+    console.log(`\n${'='.repeat(60)}`);
+    console.log(`🚀 HTTP + WebSocket Server Running on Port ${PORT}`);
+    console.log(`${'='.repeat(60)}`);
+    console.log(`\n📱 Access URLs:`);
+    console.log(`   👤 User Login:  http://localhost:${PORT}/login.html`);
+    console.log(`   🔐 Admin Panel: http://localhost:${PORT}/admin.html`);
+    console.log(`\n🔑 Current Password: ${currentPassword}`);
+    console.log(`⏰ Password Expires: ${new Date(passwordCreatedAt + PASSWORD_EXPIRY).toLocaleTimeString()}`);
+    console.log(`${'='.repeat(60)}\n`);
 });
 
 // ---------------------- WEBSOCKET SERVER ----------------------
