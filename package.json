@@ -4,8 +4,7 @@
   "private": true,
   "scripts": {
     "start": "node server/server.js",
-    "postinstall": "cd server && npm install",
-    "setup-ssl": "pwsh -ExecutionPolicy Bypass -File ./generate-ssl.ps1"
+    "postinstall": "cd server && npm install"
   },
   "engines": {
     "node": "18.x"

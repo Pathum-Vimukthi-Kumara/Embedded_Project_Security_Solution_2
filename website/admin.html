@@ -265,6 +265,16 @@
     </div>
     <p class="subtitle">Manage user access with dynamic passwords</p>
     
+    <!-- ngrok URL Input -->
+    <div class="input-group" style="background: #fff3cd; padding: 15px; border-radius: 8px; border-left: 4px solid #ffc107;">
+      <label for="ngrokUrl" style="color: #856404;">🌍 ngrok URL (Optional - for external access)</label>
+      <input type="text" id="ngrokUrl" placeholder="https://abc123.ngrok-free.app" 
+             style="width: 100%; padding: 10px; border: 2px solid #ddd; border-radius: 5px; font-size: 14px; margin-bottom: 10px;">
+      <p style="font-size: 12px; color: #856404; margin: 0;">
+        Paste your ngrok URL here to make QR codes work from different WiFi networks. Leave empty for local access only.
+      </p>
+    </div>
+    
     <div class="qr-section">
       <h2 style="margin-top: 0; color: #333; font-size: 20px;">Login QR Code</h2>
       <div id="qrCode">
@@ -403,6 +413,28 @@
       adminDashboard.classList.remove('hidden');
       loadPasswordData();
       refreshInterval = setInterval(loadPasswordData, 30000);
+      
+      // Add event listener for ngrok URL input
+      const ngrokUrlInput = document.getElementById('ngrokUrl');
+      ngrokUrlInput.addEventListener('input', debounce(() => {
+        const url = ngrokUrlInput.value.trim();
+        if (!url || url.startsWith('https://')) {
+          loadPasswordData(); // Reload QR code when URL changes
+        }
+      }, 1000));
+    }
+    
+    // Debounce function to avoid too many requests
+    function debounce(func, wait) {
+      let timeout;
+      return function executedFunction(...args) {
+        const later = () => {
+          clearTimeout(timeout);
+          func(...args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+      };
     }
 
     function hideDashboard() {
@@ -418,7 +450,16 @@
 
     async function loadPasswordData() {
       try {
-        const response = await fetch('/api/admin/password');
+        // Get ngrok URL from input field
+        const ngrokUrl = document.getElementById('ngrokUrl').value.trim();
+        
+        // Build API URL with ngrok parameter if provided
+        let apiUrl = '/api/admin/password';
+        if (ngrokUrl && ngrokUrl.startsWith('https://')) {
+          apiUrl += `?ngrokUrl=${encodeURIComponent(ngrokUrl)}`;
+        }
+        
+        const response = await fetch(apiUrl);
         
         if (!response.ok) {
           if (response.status === 401) {
@@ -438,6 +479,16 @@
         // Display QR code
         const qrCodeDiv = document.getElementById('qrCode');
         qrCodeDiv.innerHTML = `<img src="${data.qrCode}" alt="Login QR Code">`;
+        
+        // Log the URL being used
+        if (data.loginUrl) {
+          console.log('QR Code URL:', data.loginUrl);
+          if (data.usingNgrok) {
+            console.log('✅ Using ngrok URL - works from any network!');
+          } else {
+            console.log('⚠️ Using local URL - same WiFi only');
+          }
+        }
         
         // Start countdown
         startCountdown(data.expiresIn);

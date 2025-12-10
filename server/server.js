@@ -141,7 +141,19 @@ function requireAdminAuth(req, res, next) {
 app.get('/api/admin/password', requireAdminAuth, async (req, res) => {
     refreshPasswordIfNeeded();
     
-    const loginUrl = `${req.protocol}://${req.get('host')}/login.html?pwd=${currentPassword}`;
+    // Check if ngrok URL is provided as query parameter
+    const ngrokUrl = req.query.ngrokUrl;
+    let baseUrl;
+    
+    if (ngrokUrl && ngrokUrl.startsWith('https://')) {
+        // Use provided ngrok URL
+        baseUrl = ngrokUrl.endsWith('/') ? ngrokUrl.slice(0, -1) : ngrokUrl;
+    } else {
+        // Use request host (local or network IP)
+        baseUrl = `${req.protocol}://${req.get('host')}`;
+    }
+    
+    const loginUrl = `${baseUrl}/login.html?pwd=${currentPassword}`;
     
     try {
         const qrCodeDataUrl = await QRCode.toDataURL(loginUrl, {
@@ -158,6 +170,8 @@ app.get('/api/admin/password', requireAdminAuth, async (req, res) => {
         res.json({
             password: currentPassword,
             qrCode: qrCodeDataUrl,
+            loginUrl: loginUrl,
+            usingNgrok: !!ngrokUrl,
             expiresIn: Math.floor(timeRemaining / 1000),
             createdAt: new Date(passwordCreatedAt).toLocaleString()
         });
